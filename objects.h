@@ -19,6 +19,10 @@ inline float clip(float val, float l, float r) {
     if (val > r) return r;
     return val;
 }
+inline sf::Vector2f rotatePoint(const sf::Vector2f& curPoint, float angle) {
+    float sin_angle = sinf(angle), cos_angle = cosf(angle);
+    return {cos_angle * curPoint.x - sin_angle * curPoint.y, sin_angle * curPoint.x + cos_angle * curPoint.y };
+}
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
     os << "[";
@@ -58,15 +62,29 @@ sf::ConvexShape rectangleToConvex(const sf::RectangleShape& rectangle)
 class Flipper {
 protected:    
     sf::ConvexShape shape;
-    float initAngle;
-    Flipper(sf::Vector2f pivot, sf::Color color, float angle): initAngle(angle) {
+    float initAngle, curAngle;
+    float pivot_x, pivot_y;
+    Flipper(sf::Vector2f pivot, sf::Color color, float angle): initAngle(angle), pivot_x(pivot.x), pivot_y(pivot.y), curAngle(0.) {
         shape.setOrigin(pivot);
         shape.setPosition(pivot);
         shape.setFillColor(color);
-        shape.setPointCount(4);
+        shape.setPointCount(5);
+    }
+    void rotateShape(float angle) {
+        curAngle += angle;
+        while (curAngle < 0) curAngle += 360.;
+        while (curAngle >= 360.) curAngle -= 360.;
+        sf::Transform transform;
+        transform.rotate(angle, pivot_x, pivot_y);
+        for (int i = 0; i < 5; i++)
+            shape.setPoint(i, transform.transformPoint(shape.getPoint(i)));
+    }
+
+    float getRotationShape() const {
+        return curAngle;
     }
 public:
-    virtual void rotate(const float) = 0;
+    virtual void rotate() = 0;
     sf::ConvexShape getShape() const {
         return shape;
     }
@@ -77,22 +95,23 @@ public:
     LeftFlipper(sf::Vector2f size, sf::Vector2f pivot, sf::Color color, float angle): Flipper(pivot, color, angle) {
         shape.setPoint(0, pivot + sf::Vector2f(-size.y, 0));
         shape.setPoint(1, pivot + sf::Vector2f(0, -size.y));
-        shape.setPoint(2, pivot + sf::Vector2f(size.x, 0));
-        shape.setPoint(3, pivot + sf::Vector2f(0, size.y));
-        shape.setRotation(angle);
+        shape.setPoint(2, pivot + sf::Vector2f(size.x, -size.y / 2));
+        shape.setPoint(3, pivot + sf::Vector2f(size.x, size.y / 2));
+        shape.setPoint(4, pivot + sf::Vector2f(0, size.y));
+        rotateShape(angle);
     }
 
-    void rotate(const float angleSpeed) {
+    void rotate() {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            float nextAngle = shape.getRotation() - angleSpeed;
+            float nextAngle = getRotationShape() - FLIPPER_ANGLE_SPEED;
             if (nextAngle <= initAngle || nextAngle >= 360.f - initAngle) {
-                shape.rotate(-angleSpeed);
+                rotateShape(-FLIPPER_ANGLE_SPEED);
             }
         }
         else {
-            float nextAngle = shape.getRotation() + angleSpeed;
+            float nextAngle = getRotationShape() + FLIPPER_ANGLE_SPEED;
             if (nextAngle <= initAngle || nextAngle >= 360.f - initAngle) {
-                shape.rotate(angleSpeed);
+                rotateShape(FLIPPER_ANGLE_SPEED);
             }
         }
     }
@@ -101,29 +120,31 @@ public:
 class RightFlipper : public Flipper {
 public:
     RightFlipper(sf::Vector2f size, sf::Vector2f pivot, sf::Color color, float angle) : Flipper(pivot, color, angle) {
-        shape.setPoint(0, pivot + sf::Vector2f(-size.x, 0));
-        shape.setPoint(1, pivot + sf::Vector2f(0, -size.y));
-        shape.setPoint(2, pivot + sf::Vector2f(size.y, 0));
-        shape.setPoint(3, pivot + sf::Vector2f(0, size.y));
-        shape.setRotation(-angle);
+        shape.setPoint(0, pivot + sf::Vector2f(-size.x, size.y / 2));
+        shape.setPoint(1, pivot + sf::Vector2f(-size.x, -size.y / 2));
+        shape.setPoint(2, pivot + sf::Vector2f(0, -size.y));
+        shape.setPoint(3, pivot + sf::Vector2f(size.y, 0));
+        shape.setPoint(4, pivot + sf::Vector2f(0, size.y));
+        rotateShape(-angle);
     }
 
-    void rotate(const float angleSpeed) {
+    void rotate() {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            float nextAngle = shape.getRotation() + angleSpeed;
+            float nextAngle = getRotationShape() + FLIPPER_ANGLE_SPEED;
             if (nextAngle <= initAngle || nextAngle >= 360.f - initAngle) {
-                shape.rotate(angleSpeed);
+                rotateShape(FLIPPER_ANGLE_SPEED);
             }
         }
-        else {
-            float nextAngle = shape.getRotation() - angleSpeed;
+        else{
+            float nextAngle = getRotationShape() - FLIPPER_ANGLE_SPEED;
             if (nextAngle <= initAngle || nextAngle >= 360.f - initAngle) {
-                shape.rotate(-angleSpeed);
+                rotateShape(-FLIPPER_ANGLE_SPEED);
             }
         }
     }
 };
 
+/*
 class LaunchWall {
 private: 
     sf::RectangleShape shape;
@@ -134,6 +155,22 @@ public:
         shape.setFillColor(color);
     }
     sf::RectangleShape getShape() const {
+        return shape;
+    }
+};*/
+
+class LaunchWall {
+    sf::ConvexShape shape;
+public:
+    LaunchWall(sf::Vector2f pos, sf::Vector2f size, sf::Color color) {
+        shape.setPointCount(4);
+        shape.setPoint(0, pos);
+        shape.setPoint(1, sf::Vector2f(pos.x, pos.y + size.y));
+        shape.setPoint(2, sf::Vector2f(pos.x + size.x, pos.y + size.y));
+        shape.setPoint(3, sf::Vector2f(pos.x + size.x, pos.y + size.x));
+        shape.setFillColor(color);
+    }
+    sf::ConvexShape getShape() const {
         return shape;
     }
 };
@@ -163,7 +200,6 @@ class LaunchSpring {
 private:
     sf::RectangleShape shape;
     sf::Vector2f initSize, initPos;
-    bool hasReleased;
     float maxCompress;
 public:
     LaunchSpring(sf::Vector2f pos, sf::Vector2f size, sf::Color color) {
@@ -173,20 +209,15 @@ public:
         initSize = size;
         initPos = pos;
         maxCompress = 0.f;
-        hasReleased = false;
     }
     void compress(float speed) {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-            float nextHeight = std::max(initSize.y / 4, shape.getSize().y - speed);
+            float nextHeight = std::max(initSize.y * MIN_SHRINK_PERCENT, shape.getSize().y - speed);
             shape.setSize(sf::Vector2f(initSize.x, nextHeight));
             maxCompress = std::max(maxCompress, initSize.y - nextHeight);
         }
-        else if (maxCompress > 0.f) {
-            float nextHeight = shape.getSize().y + speed;
-            if (nextHeight >= initSize.y) {
-                hasReleased = true;
-                nextHeight = initSize.y;
-            }
+        else {
+            float nextHeight = std::min(initSize.y, shape.getSize().y + speed);
             shape.setSize(sf::Vector2f(initSize.x, nextHeight));
         }
         shape.setPosition(initPos.x, initPos.y + initSize.y - shape.getSize().y);
@@ -194,15 +225,11 @@ public:
     sf::RectangleShape getShape() const {
         return shape;
     }
-    bool released() const {
-        return hasReleased;
-    }
-    float maxCompression() const {
+    float maxCompression() {
         return maxCompress;
     }
-    void relaunch() {
+    void reset() {
         maxCompress = 0.f;
-        hasReleased = false;
     }
 };
 
@@ -210,48 +237,50 @@ class Ball {
 private:
     sf::CircleShape shape;
     sf::Vector2f velocity;
-    bool hasLaunched;
     float radius;
 
 public:
-    Ball(float inputRadius, sf::Color color) {
+    Ball(float inputRadius, sf::Color color, const LaunchSpring &spring) {
         shape.setRadius(inputRadius);
         shape.setFillColor(color);
         velocity = sf::Vector2f(0.f, 0.f); // Initial velocity
         radius = inputRadius;
-        hasLaunched = false;
+        
+        sf::Vector2f springSize = spring.getShape().getSize();
+        sf::Vector2f springPos = spring.getShape().getPosition();
+        shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 2.f));
+    }
+    sf::Vector2f getCenter() {
+        return {shape.getPosition().x + radius, shape.getPosition().y + radius};
     }
 
-    void update(LaunchSpring &spring, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper) {
-        sf::CircleShape old_shape = shape;
+    void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper) {
         shape.move(velocity);
-        if (hasLaunched) {
-            // if collide, need to find a way to display it just as when it touches the shape
-            if (collide(spring)) {
-                shape = old_shape;
-                reset(spring);
-                hasLaunched = false;
-                spring.relaunch();
-            }
-            if (collideAndReflectPolygon(roof.getLeftSide())) {
-                std::cout << "Collided with left side roof." << std::endl;
-            }
-            else if (collideAndReflectPolygon(roof.getRightSide())) {
-                std::cout << "Collided with right side roof." <<  std::endl;
-            }
-            else if (collideAndReflectPolygon(leftFlipper.getShape())) {
-                std::cout << "Collided with left flipper." << std::endl;
-            }
-            else if (collideAndReflectPolygon(rightFlipper.getShape())) {
-                std::cout << "Collided with right flipper." << std::endl;
-            }
-            else if (collideAndReflectScreen()) {
-                std::cout << "Collided with the screen." << std::endl;
-            }
-
+        //std::cout << velocity << std::endl;
+        if (collideAndReflectPolygon(rectangleToConvex(spring.getShape()))) {
+            velocity.y -= spring.maxCompression() / spring.getShape().getSize().y * .75f;
+            spring.reset();
         }
-        else launch(spring);
+        else if (collideAndReflectPolygon(roof.getLeftSide())) {
+            std::cout << "Collided with left side roof." << std::endl;
+        }
+        else if (collideAndReflectPolygon(roof.getRightSide())) {
+            std::cout << "Collided with right side roof." <<  std::endl;
+        }
+        else if (collideAndReflectPolygon(launchWall.getShape())) {
+            std::cout << "Collided with launch wall." << std::endl;
+        }
+        else if (collideAndReflectPolygon(leftFlipper.getShape())) {
+            std::cout << "Collided with left flipper." << std::endl;
+        }
+        else if (collideAndReflectPolygon(rightFlipper.getShape())) {
+            std::cout << "Collided with right flipper." << std::endl;
+        }
+        else if (collideAndReflectScreen()) {
+            std::cout << "Collided with the screen." << std::endl;
+        }
         velocity.y += GRAVITY_ACC;
+       
     }
     void reset(const LaunchSpring &spring) {
         sf::Vector2f springSize = spring.getShape().getSize();
@@ -259,12 +288,12 @@ public:
         shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 2.f));
         velocity = sf::Vector2f(0.f, 0.f);
     }
-    bool collide(const LaunchSpring& spring) {
+    bool collideWithSpring(const LaunchSpring& spring) {
         return shape.getGlobalBounds().intersects(spring.getShape().getGlobalBounds());
     }
 
     bool collideAndReflectLine(const sf::Vector2f from, const sf::Vector2f to) {
-        sf::Vector2f center = shape.getPosition();
+        sf::Vector2f center = getCenter();
         sf::Vector2f closestVec;
 
         float centerDotFrom = vector2fDot(center - from, to - from), centerDotTo = vector2fDot(center - to, from - to);
@@ -277,12 +306,12 @@ public:
         
         float distToClosest = std::sqrtf(vector2fLengthSquare(closestVec));
         if (distToClosest > radius) return false;
-        shape.setPosition(center - vector2fNormalize(velocity, (radius - distToClosest)*(radius - distToClosest)));
+        shape.setPosition(shape.getPosition() - vector2fNormalize(closestVec, (radius - distToClosest) * (radius - distToClosest)));
         velocity = vector2fNormalize(velocity - closestVec * 2.f, vector2fLengthSquare(velocity)* RESTITUTION);
         return true;
     }
     bool collideAndReflectScreen() {
-        sf::Vector2f center = shape.getPosition();
+        sf::Vector2f center = getCenter();
         bool returnVal = false;
         if (center.x - radius < 0) {
             velocity = vector2fNormalize(velocity - sf::Vector2f(-center.x, 0) * 2.f, vector2fLengthSquare(velocity) * RESTITUTION);
@@ -301,27 +330,15 @@ public:
             returnVal = true;
         }
 
-        shape.setPosition(clip(center.x, 0, WINDOW_WIDTH), clip(center.y, 0, WINDOW_HEIGHT));
+        shape.setPosition(clip(center.x, radius, WINDOW_WIDTH - radius) - radius, clip(center.y, radius, WINDOW_HEIGHT - radius) - radius);
         return returnVal;
     }
     bool collideAndReflectPolygon(const sf::ConvexShape& convex) {
-        int numVertices = convex.getPointCount();
+        size_t numVertices = convex.getPointCount();
         for (int i = 0; i < numVertices - 1; i++)
             if (collideAndReflectLine(convex.getPoint(i), convex.getPoint(i + 1))) return true;
         if (collideAndReflectLine(convex.getPoint(numVertices - 1), convex.getPoint(0))) return true;
         return false;
-    }
-    void launch(const LaunchSpring& spring) {
-        if (hasLaunched) return;
-        sf::Vector2f springSize = spring.getShape().getSize();
-        sf::Vector2f springPos = spring.getShape().getPosition();
-        if (!spring.released())
-            shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 2.f));
-        else if (!hasLaunched) {
-            //std::cout << "maximum compression: " << spring.maxCompression() << std::endl;
-            velocity.y = -spring.maxCompression() / springSize.y * 1.25f;
-            hasLaunched = true;
-        }
     }
     sf::CircleShape getShape() const {
         return shape;

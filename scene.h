@@ -10,18 +10,19 @@ public:
     LeftFlipper leftFlipper;
     RightFlipper rightFlipper;
     Roof roof;
-    Scene() : ball(BALL_RADIUS, BALL_COLOR),
+    Scene() :
         leftFlipper(FLIPPER_SIZE, LEFT_FLIPPER_POS, FLIPPER_COLOR, FLIPPER_INIT_ANGLE),
         rightFlipper(FLIPPER_SIZE, RIGHT_FLIPPER_POS, FLIPPER_COLOR, FLIPPER_INIT_ANGLE),
         launchWall(LAUNCH_WALL_POS, LAUNCH_WALL_SIZE, LAUNCH_WALL_COLOR),
         launchSpring(LAUNCH_SPRING_POS, LAUNCH_SPRING_SIZE, LAUNCH_SPRING_COLOR),
-        roof(ROOF_POINTS, ROOF_COLOR) {}
+        roof(ROOF_POINTS, ROOF_COLOR),
+        ball(BALL_RADIUS, BALL_COLOR, launchSpring) {}
     
     void update() {
         launchSpring.compress(LAUNCH_SPRING_COMPRESS_SPEED);
-        ball.update(launchSpring, roof, leftFlipper, rightFlipper);
-        leftFlipper.rotate(FLIPPER_ANGLE_SPEED);
-        rightFlipper.rotate(FLIPPER_ANGLE_SPEED);
+        leftFlipper.rotate();
+        rightFlipper.rotate();
+        ball.update(launchSpring, launchWall, roof, leftFlipper, rightFlipper);
     }
 
     void draw(sf::RenderWindow& window) {
