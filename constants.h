@@ -32,7 +32,6 @@ const sf::Vector2f LAUNCH_WALL_SIZE(20., WINDOW_HEIGHT - BALL_RADIUS * 2.f * 4.f
 const sf::Vector2f LAUNCH_WALL_POS(LAUNCH_SPRING_POS.x - LAUNCH_WALL_SIZE.x, WINDOW_HEIGHT - LAUNCH_WALL_SIZE.y);
 const sf::Color LAUNCH_WALL_COLOR = sf::Color::Black;
 
-const float GRAVITY_ACC = .0003f;
 
 const std::array<sf::Vector2f, 6> ROOF_POINTS = {
 	sf::Vector2f(0.f, 0.f),
@@ -44,4 +43,10 @@ const std::array<sf::Vector2f, 6> ROOF_POINTS = {
 };
 const sf::Color ROOF_COLOR = sf::Color::Black;
 
-const float RESTITUTION = .5;
+const float RESTITUTION = .75f;
+
+const float BALL_MASS = 1.f;
+const float FLIPPER_MASS = 3.f;
+const float SPRING_MASS = 5.f;
+const float SPRING_CONSTANT = .01f;
+const float GRAVITY_ACC = .00032f;

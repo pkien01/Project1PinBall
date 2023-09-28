@@ -8,11 +8,14 @@
 inline float vector2fLengthSquare(const sf::Vector2f& vec) {
     return vec.x * vec.x + vec.y * vec.y;
 }
+inline float vector2fLength(const sf::Vector2f& vec) {
+    return sqrtf(vector2fLengthSquare(vec));
+}
 inline float vector2fDot(const sf::Vector2f& vec1, const sf::Vector2f& vec2) {
     return vec1.x * vec2.x + vec1.y * vec2.y;
 }
 inline sf::Vector2f vector2fNormalize(const sf::Vector2f& vec, const float newLengthSquare = 1.f) {
-    return vec*std::sqrtf(newLengthSquare / vector2fLengthSquare(vec));
+    return vec*newLengthSquare / vector2fLength(vec);
 }
 inline float clip(float val, float l, float r) {
     if (val < l) return l;
@@ -63,6 +66,7 @@ class Flipper {
 protected:    
     sf::ConvexShape shape;
     float initAngle, curAngle;
+    float angleVelocity;
     float pivot_x, pivot_y;
     Flipper(sf::Vector2f pivot, sf::Color color, float angle): initAngle(angle), pivot_x(pivot.x), pivot_y(pivot.y), curAngle(0.) {
         shape.setOrigin(pivot);
@@ -88,6 +92,16 @@ public:
     sf::ConvexShape getShape() const {
         return shape;
     }
+    sf::Vector2f getPivot() const {
+        return sf::Vector2f(pivot_x, pivot_y);
+    }
+    void update() {
+        rotate();
+        rotateShape(angleVelocity);
+    }
+    float getAngleVelocity() const {
+        return angleVelocity;
+    }
 };
 
 class LeftFlipper: public Flipper {
@@ -105,14 +119,16 @@ public:
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
             float nextAngle = getRotationShape() - FLIPPER_ANGLE_SPEED;
             if (nextAngle <= initAngle || nextAngle >= 360.f - initAngle) {
-                rotateShape(-FLIPPER_ANGLE_SPEED);
+                angleVelocity = -FLIPPER_ANGLE_SPEED;
             }
+            else angleVelocity = 0.f;
         }
         else {
             float nextAngle = getRotationShape() + FLIPPER_ANGLE_SPEED;
             if (nextAngle <= initAngle || nextAngle >= 360.f - initAngle) {
-                rotateShape(FLIPPER_ANGLE_SPEED);
+                angleVelocity = FLIPPER_ANGLE_SPEED;
             }
+            else angleVelocity = 0.f;
         }
     }
 };
@@ -132,32 +148,20 @@ public:
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
             float nextAngle = getRotationShape() + FLIPPER_ANGLE_SPEED;
             if (nextAngle <= initAngle || nextAngle >= 360.f - initAngle) {
-                rotateShape(FLIPPER_ANGLE_SPEED);
+                angleVelocity = FLIPPER_ANGLE_SPEED;
             }
+            else angleVelocity = 0.f;
         }
         else{
             float nextAngle = getRotationShape() - FLIPPER_ANGLE_SPEED;
             if (nextAngle <= initAngle || nextAngle >= 360.f - initAngle) {
-                rotateShape(-FLIPPER_ANGLE_SPEED);
+                angleVelocity = -FLIPPER_ANGLE_SPEED;
             }
+            else angleVelocity = 0.f;
         }
     }
 };
 
-/*
-class LaunchWall {
-private: 
-    sf::RectangleShape shape;
-public:
-    LaunchWall(sf::Vector2f pos, sf::Vector2f size, sf::Color color) {
-        shape.setPosition(pos);
-        shape.setSize(size);
-        shape.setFillColor(color);
-    }
-    sf::RectangleShape getShape() const {
-        return shape;
-    }
-};*/
 
 class LaunchWall {
     sf::ConvexShape shape;
@@ -231,6 +235,9 @@ public:
     void reset() {
         maxCompress = 0.f;
     }
+    float getSpeed() {
+        return sqrtf(2.f * SPRING_CONSTANT * maxCompress * maxCompress / SPRING_MASS);
+    }
 };
 
 class Ball {
@@ -238,13 +245,15 @@ private:
     sf::CircleShape shape;
     sf::Vector2f velocity;
     float radius;
+    float mass;
 
 public:
-    Ball(float inputRadius, sf::Color color, const LaunchSpring &spring) {
+    Ball(float inputRadius, sf::Color color, const LaunchSpring &spring, const float ballMass) {
         shape.setRadius(inputRadius);
         shape.setFillColor(color);
         velocity = sf::Vector2f(0.f, 0.f); // Initial velocity
         radius = inputRadius;
+        mass = ballMass;
         
         sf::Vector2f springSize = spring.getShape().getSize();
         sf::Vector2f springPos = spring.getShape().getPosition();
@@ -257,8 +266,7 @@ public:
     void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper) {
         shape.move(velocity);
         //std::cout << velocity << std::endl;
-        if (collideAndReflectPolygon(rectangleToConvex(spring.getShape()))) {
-            velocity.y -= spring.maxCompression() / spring.getShape().getSize().y * .75f;
+        if (collideAndReflectPolygon(rectangleToConvex(spring.getShape()), SPRING_MASS, { 0.f, -spring.getSpeed() })) {
             spring.reset();
         }
         else if (collideAndReflectPolygon(roof.getLeftSide())) {
@@ -270,10 +278,12 @@ public:
         else if (collideAndReflectPolygon(launchWall.getShape())) {
             std::cout << "Collided with launch wall." << std::endl;
         }
-        else if (collideAndReflectPolygon(leftFlipper.getShape())) {
+        else if (collideAndReflectPolygon(leftFlipper.getShape(), FLIPPER_MASS, leftFlipper.getAngleVelocity()*(getCenter() - leftFlipper.getPivot()))) {
+            std::cout << velocity << " " << leftFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - leftFlipper.getPivot()) << std::endl;
             std::cout << "Collided with left flipper." << std::endl;
         }
-        else if (collideAndReflectPolygon(rightFlipper.getShape())) {
+        else if (collideAndReflectPolygon(rightFlipper.getShape(), FLIPPER_MASS, rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()))) {
+            std::cout << velocity << " " << rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()) << std::endl;
             std::cout << "Collided with right flipper." << std::endl;
         }
         else if (collideAndReflectScreen()) {
@@ -292,52 +302,59 @@ public:
         return shape.getGlobalBounds().intersects(spring.getShape().getGlobalBounds());
     }
 
-    bool collideAndReflectLine(const sf::Vector2f from, const sf::Vector2f to) {
+    bool collideAndReflectLine(const sf::Vector2f from, const sf::Vector2f to, const float shapeMass = 0., const sf::Vector2f &shapeVelocity = sf::Vector2f(0., 0.)) {
         sf::Vector2f center = getCenter();
         sf::Vector2f closestVec;
 
         float centerDotFrom = vector2fDot(center - from, to - from), centerDotTo = vector2fDot(center - to, from - to);
-        if (centerDotFrom < 0) closestVec = from - center;
-        else if (centerDotTo < 0) closestVec = to - center;
+        if (centerDotFrom < 0) {
+            closestVec = from - center;
+        }
+        else if (centerDotTo < 0) {
+            closestVec = to - center;
+        }
         else {
-            sf::Vector2f projPoint = from + (to - from)*(centerDotFrom / vector2fLengthSquare(to - from));
+            sf::Vector2f projPoint = from + (to - from) * (centerDotFrom / vector2fLengthSquare(to - from));
             closestVec = projPoint - center;
         }
-        
+
         float distToClosest = std::sqrtf(vector2fLengthSquare(closestVec));
         if (distToClosest > radius) return false;
         shape.setPosition(shape.getPosition() - vector2fNormalize(closestVec, (radius - distToClosest) * (radius - distToClosest)));
-        velocity = vector2fNormalize(velocity - closestVec * 2.f, vector2fLengthSquare(velocity)* RESTITUTION);
+
+        sf::Vector2f momentumVelocity(0.f, 0.f);
+        if (shapeMass > 0.f) momentumVelocity = (mass * 2.f * velocity + (shapeMass - mass) * shapeVelocity) / (mass + shapeMass);
+        velocity = vector2fNormalize(velocity - closestVec * 2.f, vector2fLength(velocity) * RESTITUTION) + momentumVelocity;
         return true;
     }
     bool collideAndReflectScreen() {
         sf::Vector2f center = getCenter();
         bool returnVal = false;
         if (center.x - radius < 0) {
-            velocity = vector2fNormalize(velocity - sf::Vector2f(-center.x, 0) * 2.f, vector2fLengthSquare(velocity) * RESTITUTION);
+            velocity = vector2fNormalize(velocity - sf::Vector2f(-center.x, 0) * 2.f, vector2fLength(velocity) * RESTITUTION);
             returnVal = true;
         }
         else if (center.y - radius < 0) {
-            velocity = vector2fNormalize(velocity - sf::Vector2f(0, -center.y) * 2.f, vector2fLengthSquare(velocity) * RESTITUTION);
+            velocity = vector2fNormalize(velocity - sf::Vector2f(0, -center.y) * 2.f, vector2fLength(velocity) * RESTITUTION);
             returnVal = true;
         }
         else if (center.x + radius > WINDOW_WIDTH) {
-            velocity = vector2fNormalize(velocity - sf::Vector2f(WINDOW_WIDTH-center.x, 0) * 2.f, vector2fLengthSquare(velocity) * RESTITUTION);
+            velocity = vector2fNormalize(velocity - sf::Vector2f(WINDOW_WIDTH-center.x, 0) * 2.f, vector2fLength(velocity) * RESTITUTION);
             returnVal = true;
         }
         else if (center.y + radius > WINDOW_HEIGHT) {
-            velocity = vector2fNormalize(velocity - sf::Vector2f(0, WINDOW_HEIGHT - center.y) * 2.f, vector2fLengthSquare(velocity) * RESTITUTION);
+            velocity = vector2fNormalize(velocity - sf::Vector2f(0, WINDOW_HEIGHT - center.y) * 2.f, vector2fLength(velocity) * RESTITUTION);
             returnVal = true;
         }
 
         shape.setPosition(clip(center.x, radius, WINDOW_WIDTH - radius) - radius, clip(center.y, radius, WINDOW_HEIGHT - radius) - radius);
         return returnVal;
     }
-    bool collideAndReflectPolygon(const sf::ConvexShape& convex) {
+    bool collideAndReflectPolygon(const sf::ConvexShape& convex, const float shapeMass = 0., const sf::Vector2f& shapeVelocity = sf::Vector2f(0., 0.)) {
         size_t numVertices = convex.getPointCount();
         for (int i = 0; i < numVertices - 1; i++)
-            if (collideAndReflectLine(convex.getPoint(i), convex.getPoint(i + 1))) return true;
-        if (collideAndReflectLine(convex.getPoint(numVertices - 1), convex.getPoint(0))) return true;
+            if (collideAndReflectLine(convex.getPoint(i), convex.getPoint(i + 1), shapeMass, shapeVelocity)) return true;
+        if (collideAndReflectLine(convex.getPoint(numVertices - 1), convex.getPoint(0), shapeMass, shapeVelocity)) return true;
         return false;
     }
     sf::CircleShape getShape() const {
