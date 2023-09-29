@@ -4,7 +4,9 @@
 #include "constants.h"
 #include <array>
 #include "scene.h"
+#include <math.h>
 
+// Vector 2 code
 inline float vector2fLengthSquare(const sf::Vector2f& vec) {
     return vec.x * vec.x + vec.y * vec.y;
 }
@@ -12,7 +14,7 @@ inline float vector2fDot(const sf::Vector2f& vec1, const sf::Vector2f& vec2) {
     return vec1.x * vec2.x + vec1.y * vec2.y;
 }
 inline sf::Vector2f vector2fNormalize(const sf::Vector2f& vec, const float newLengthSquare = 1.f) {
-    return vec*std::sqrtf(newLengthSquare / vector2fLengthSquare(vec));
+    return vec*sqrtf(newLengthSquare / vector2fLengthSquare(vec));
 }
 inline float clip(float val, float l, float r) {
     if (val < l) return l;
@@ -22,6 +24,11 @@ inline float clip(float val, float l, float r) {
 inline sf::Vector2f rotatePoint(const sf::Vector2f& curPoint, float angle) {
     float sin_angle = sinf(angle), cos_angle = cosf(angle);
     return {cos_angle * curPoint.x - sin_angle * curPoint.y, sin_angle * curPoint.x + cos_angle * curPoint.y };
+}
+
+inline float distance_square(const sf::Vector2f& vec1, const sf::Vector2f& vec2) {
+    float diff_x = vec1.x - vec2.x, diff_y = vec1.y - vec2.y;
+    return diff_x * diff_x + diff_y * diff_y;
 }
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
@@ -196,6 +203,31 @@ public:
     }
 };
 
+class Obstacle_Circle {
+sf::CircleShape circle;
+sf::Vector2f velocity;
+float radius;
+
+public:
+// (OB_BALL_RADIUS, OB_BALL_COLOR, OB_POS),
+    Obstacle_Circle(float inputRadius, sf::Color color, const sf::Vector2f position) {
+        circle.setRadius(inputRadius);
+        circle.setFillColor(color);
+        circle.setPosition(position);
+        radius = inputRadius;
+    }
+    sf::CircleShape getShape() const{
+    return circle;
+    }
+    sf::Vector2f getCenter() const{
+        return {circle.getPosition().x + radius, circle.getPosition().y + radius};
+    }
+    float getRadius() const{
+        return radius;
+    }
+
+};
+
 class LaunchSpring {
 private:
     sf::RectangleShape shape;
@@ -254,7 +286,7 @@ public:
         return {shape.getPosition().x + radius, shape.getPosition().y + radius};
     }
 
-    void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper) {
+    void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper, const Obstacle_Circle &obstacle_circle) {
         shape.move(velocity);
         //std::cout << velocity << std::endl;
         if (collideAndReflectPolygon(rectangleToConvex(spring.getShape()))) {
@@ -278,6 +310,9 @@ public:
         }
         else if (collideAndReflectScreen()) {
             std::cout << "Collided with the screen." << std::endl;
+        }
+        else if (collideAndReflectcircle(obstacle_circle.getCenter(), obstacle_circle.getRadius())) {
+            std::cout << "Collided with obstacle circle." << std::endl;
         }
         velocity.y += GRAVITY_ACC;
        
@@ -304,7 +339,7 @@ public:
             closestVec = projPoint - center;
         }
         
-        float distToClosest = std::sqrtf(vector2fLengthSquare(closestVec));
+        float distToClosest = sqrtf(vector2fLengthSquare(closestVec));
         if (distToClosest > radius) return false;
         shape.setPosition(shape.getPosition() - vector2fNormalize(closestVec, (radius - distToClosest) * (radius - distToClosest)));
         velocity = vector2fNormalize(velocity - closestVec * 2.f, vector2fLengthSquare(velocity)* RESTITUTION);
@@ -340,6 +375,17 @@ public:
         if (collideAndReflectLine(convex.getPoint(numVertices - 1), convex.getPoint(0))) return true;
         return false;
     }
+    
+    bool collideAndReflectcircle(const sf::Vector2f obstacle_center, float obstacle_radius) {
+        float sum_radius = radius + obstacle_radius;
+        sf::Vector2f center = getCenter();
+        if(distance_square(center,obstacle_center) <= sum_radius * sum_radius){
+            velocity = vector2fNormalize(velocity - sf::Vector2f(-center.x, 0) * 2.f, vector2fLengthSquare(velocity) * RESTITUTION);
+            return true;
+        }
+		return false;
+    }
+
     sf::CircleShape getShape() const {
         return shape;
     }
