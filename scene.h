@@ -18,12 +18,12 @@ public:
         launchSpring(LAUNCH_SPRING_POS, LAUNCH_SPRING_SIZE, LAUNCH_SPRING_COLOR),
         roof(ROOF_POINTS, ROOF_COLOR),
         obstacle_circle(OB_BALL_RADIUS, OB_BALL_COLOR, OB_POS),
-        ball(BALL_RADIUS, BALL_COLOR, launchSpring) {}
+        ball(BALL_RADIUS, BALL_COLOR, launchSpring, BALL_MASS) {}
     
     void update() {
         launchSpring.compress(LAUNCH_SPRING_COMPRESS_SPEED);
-        leftFlipper.rotate();
-        rightFlipper.rotate();
+        leftFlipper.update();
+        rightFlipper.update();
         ball.update(launchSpring, launchWall, roof, leftFlipper, rightFlipper, obstacle_circle);
     }
 
