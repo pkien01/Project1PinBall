@@ -14,13 +14,16 @@ public:
         Scene scene;
         while (window.isOpen()) {
             sf::Event event;
+            bool enterPressed = false;
             while (window.pollEvent(event)) {
                 if (event.type == sf::Event::Closed) {
                     window.close();
                 }
+                else if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Enter)
+                    enterPressed = true;
             }
 
-            scene.update();
+            scene.update(enterPressed);
 
             window.clear(sf::Color::White);
             scene.draw(window);
