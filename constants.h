@@ -45,8 +45,8 @@ const sf::Color ROOF_COLOR = sf::Color::Black;
 
 const float RESTITUTION = .75f;
 
-const float BALL_MASS = 1.f;
-const float FLIPPER_MASS = 3.f;
-const float SPRING_MASS = 5.f;
+const float BALL_MASS = .1f;
+const float FLIPPER_MASS = .3f;
+const float SPRING_MASS = .5f;
 const float SPRING_CONSTANT = .01f;
 const float GRAVITY_ACC = .00032f;
