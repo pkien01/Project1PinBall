@@ -13,8 +13,9 @@ const sf::Color BALL_COLOR = sf::Color::Red;
 
 const float OB_BALL_RADIUS = 35.f;
 const sf::Color OB_BALL_COLOR = sf::Color::Yellow;
+const float OB_MASS = 10.f;
 
-const float LAUNCH_MAX_SPEED = .1f/2;
+const float LAUNCH_MAX_SPEED = .1f/10;
 
 const float FLIPPER_WIDTH = 100.f/2;
 const float FLIPPER_HEIGHT = 10.f/2;
@@ -59,3 +60,5 @@ const float FLIPPER_MASS = 3.f;
 const float SPRING_MASS = 5.f;
 const float SPRING_CONSTANT = .01f;
 const float GRAVITY_ACC = .00032f;
+
+const sf::Color BALL_COLOR_2 = sf::Color::Magenta;

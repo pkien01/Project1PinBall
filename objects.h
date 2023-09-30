@@ -29,10 +29,10 @@ inline sf::Vector2f rotatePoint(const sf::Vector2f& curPoint, float angle) {
     return {cos_angle * curPoint.x - sin_angle * curPoint.y, sin_angle * curPoint.x + cos_angle * curPoint.y };
 }
 
-inline float distance_square(const sf::Vector2f& vec1, const sf::Vector2f& vec2) {
-    float diff_x = vec1.x - vec2.x, diff_y = vec1.y - vec2.y;
-    return diff_x * diff_x + diff_y * diff_y;
-}
+// inline float distance_square(const sf::Vector2f& vec1, const sf::Vector2f& vec2) {
+//     float diff_x = vec1.x - vec2.x, diff_y = vec1.y - vec2.y;
+//     return diff_x * diff_x + diff_y * diff_y;
+// }
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
     os << "[";
@@ -211,10 +211,11 @@ class Obstacle_Circle {
 sf::CircleShape circle;
 sf::Vector2f velocity;
 float radius;
+float mass;
 
 public:
 // (OB_BALL_RADIUS, OB_BALL_COLOR, OB_POS),
-    Obstacle_Circle(float inputRadius, sf::Color color, const sf::Vector2f position) {
+    Obstacle_Circle(float inputRadius, sf::Color color, const sf::Vector2f position, float inputMass): mass(inputMass) {
         circle.setRadius(inputRadius);
         circle.setFillColor(color);
         circle.setPosition(position);
@@ -228,6 +229,9 @@ public:
     }
     float getRadius() const{
         return radius;
+    }
+    float getMass() const {
+        return mass;
     }
 
 };
@@ -278,26 +282,29 @@ private:
     sf::Vector2f velocity;
     float radius;
     float mass;
+    float ballIndex;
 
 public:
-    Ball(float inputRadius, sf::Color color, const LaunchSpring &spring, const float ballMass) {
+    Ball(float inputRadius, sf::Color color, const LaunchSpring &spring, const float ballMass, float ball_index) {
         shape.setRadius(inputRadius);
         shape.setFillColor(color);
         velocity = sf::Vector2f(0.f, 0.f); // Initial velocity
         radius = inputRadius;
         mass = ballMass;
+        ballIndex = ball_index;
         
         sf::Vector2f springSize = spring.getShape().getSize();
         sf::Vector2f springPos = spring.getShape().getPosition();
-        shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 2.f));
+        shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 2.f * (ball_index + 1)));
     }
-    sf::Vector2f getCenter() {
+    sf::Vector2f getCenter() const {
         return {shape.getPosition().x + radius, shape.getPosition().y + radius};
     }
 
-    void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper, const Obstacle_Circle &obstacle_circle) {
+    void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper, const Obstacle_Circle &obstacle_circle, const Ball &ball_2) {
         shape.move(velocity);
-        //std::cout << velocity << std::endl;
+        //TO
+        std::cout << ballIndex << " velocity: " << velocity << std::endl;
         if (collideAndReflectPolygon(rectangleToConvex(spring.getShape()), SPRING_MASS, { 0.f, -spring.getSpeed() })) {
             spring.reset();
         }
@@ -318,11 +325,14 @@ public:
             std::cout << velocity << " " << rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()) << std::endl;
             std::cout << "Collided with right flipper." << std::endl;
         }
-        else if (collideAndReflectScreen()) {
+        else if (collideAndReflectScreen(spring)) {
             std::cout << "Collided with the screen." << std::endl;
         }
-        else if (collideAndReflectcircle(obstacle_circle.getCenter(), obstacle_circle.getRadius())) {
+        else if (collideAndReflectCircle(obstacle_circle))  {
             std::cout << "Collided with obstacle circle." << std::endl;
+        }
+        else if (collideAndReflectBall(ball_2))  {
+            std::cout << "Collided with other ball." << std::endl;
         }
         velocity.y += GRAVITY_ACC;
        
@@ -330,8 +340,9 @@ public:
     void reset(const LaunchSpring &spring) {
         sf::Vector2f springSize = spring.getShape().getSize();
         sf::Vector2f springPos = spring.getShape().getPosition();
-        shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 2.f));
+        //shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 2.f));
         velocity = sf::Vector2f(0.f, 0.f);
+        shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 2.f));
     }
     bool collideWithSpring(const LaunchSpring& spring) {
         return shape.getGlobalBounds().intersects(spring.getShape().getGlobalBounds());
@@ -362,7 +373,7 @@ public:
         velocity = vector2fNormalize(velocity - closestVec * 2.f, vector2fLength(velocity) * RESTITUTION) + momentumVelocity;
         return true;
     }
-    bool collideAndReflectScreen() {
+    bool collideAndReflectScreen(const LaunchSpring &spring) {
         sf::Vector2f center = getCenter();
         bool returnVal = false;
         if (center.x - radius < 0) {
@@ -393,14 +404,70 @@ public:
         return false;
     }
     
-    bool collideAndReflectcircle(const sf::Vector2f obstacle_center, float obstacle_radius) {
+    bool collideAndReflectCircle(const Obstacle_Circle &obstacle_Circle ) {
+        float obstacle_radius = obstacle_Circle.getRadius();
+        sf::Vector2f obstacle_center = obstacle_Circle.getCenter();
+        float obstacle_mass = obstacle_Circle.getMass();
+
         float sum_radius = radius + obstacle_radius;
         sf::Vector2f center = getCenter();
-        if(distance_square(center,obstacle_center) <= sum_radius * sum_radius){
-            velocity = vector2fNormalize(velocity - sf::Vector2f(-center.x, 0) * 2.f, vector2fLengthSquare(velocity) * RESTITUTION);
-            return true;
+        bool returnVal = false;
+        if(vector2fLengthSquare(center-obstacle_center) <= sum_radius * sum_radius){
+            //velocity = (mass * velocity - obstacle_mass*velocity*RESTITUTION) / (mass + obstacle_mass);
+            velocity = vector2fNormalize(center - obstacle_center, vector2fLength(velocity) * RESTITUTION);
+            returnVal = true;
         }
-		return false;
+
+        //based off of billards:
+
+        //shape.setPosition(clip(center.x, radius, WINDOW_WIDTH - radius) - radius, clip(center.y, radius, WINDOW_HEIGHT - radius) - radius);
+        return returnVal;
+    }
+    float getMass() const {
+        return mass;
+    }
+
+    bool collideAndReflectBall(const Ball &otherBall) {
+        float other_radius = otherBall.radius;
+        sf::Vector2f other_center = otherBall.getCenter();
+        float other_mass = otherBall.getMass();
+        sf::Vector2f other_velocity = otherBall.velocity;
+        sf::Vector2f center = getCenter();
+
+        float sum_radius = other_radius + radius;
+        bool returnVal = false;
+        if(vector2fLengthSquare(center-other_center) <= sum_radius * sum_radius){
+            // Vec2 delta = pos[i].minus(pos[j]);
+        // float dist = delta.length();
+        // vector2fLength
+        sf::Vector2f delta = center-other_center;
+        float dist = vector2fLength(delta);
+
+        // Vec2 dir = delta.normalized();
+        // float v1 = dot(vel[i], dir);
+        // float v2 = dot(vel[j], dir);
+        sf::Vector2f dir = vector2fNormalize(delta);
+        float v1 = vector2fDot(center, dir);
+        float v2 = vector2fDot(other_center, dir);
+
+        // float new_v1 = (m1 * v1 + m2 * v2 - m2 * (v1 - v2) * cor) / (m1 + m2);
+        //  float new_v2 = (m1 * v1 + m2 * v2 - m1 * (v2 - v1) * cor) / (m1 + m2);
+        float new_v1 = (mass * v1 + other_mass * v2 - other_mass * (v1 - v2) * RESTITUTION / (mass + other_mass));
+        float new_v2 = (mass * v1 + other_mass * v2 - mass * (v2 - v1) * RESTITUTION / (mass + other_mass));
+
+        // vel[i].add(dir.times(new_v1 - v1));
+        // vel[j].add(dir.times(new_v2 - v2));
+        //velocity += (dir.times(new_v1-v1));
+        velocity = vector2fNormalize(delta, new_v1 - v1);
+        other_velocity = vector2fNormalize(delta, new_v2-v2);
+        
+        returnVal = true;
+        }
+
+        //based off of billards:
+
+        //shape.setPosition(clip(center.x, radius, WINDOW_WIDTH - radius) - radius, clip(center.y, radius, WINDOW_HEIGHT - radius) - radius);
+        return returnVal;
     }
 
     sf::CircleShape getShape() const {
