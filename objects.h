@@ -279,9 +279,6 @@ public:
         id = otherBall.getId();
         shape.setPosition(otherBall.getShape().getPosition());
     }
-    sf::Vector2f getCenter() const {
-        return shape.getPosition() + sf::Vector2f(radius, radius);
-    }
     int getId() const {
         return id;
     }
@@ -296,6 +293,9 @@ public:
     }
     sf::Color getColor() const {
         return shape.getFillColor();
+    }
+    sf::Vector2f getCenter() const {
+        return shape.getPosition() + sf::Vector2f(radius, radius);
     }
 
     void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper, 
@@ -332,11 +332,11 @@ public:
         }
         for (const auto& ball : balls) {
             if (ball.id != id && collideAndReflectCircle(ball.getCenter(), ball.radius, ball.mass, ball.velocity)) {
-               // std::cout << "Ball " << id << " collide with ball " << ball.id << std::endl;
+                std::cout << "Ball " << id << " collide with ball " << ball.id << std::endl;
             }
         }
         velocity.y += GRAVITY_ACC;
-       
+   
     }
     void reset(const LaunchSpring &spring) {
         sf::Vector2f springSize = spring.getShape().getSize();
