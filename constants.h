@@ -49,7 +49,7 @@ const std::array<sf::Vector2f, 6> ROOF_POINTS = {
 
 const sf::Vector2f OB_POS((WINDOW_WIDTH - (LAUNCH_SPRING_SIZE.x * 5.f))/2, (WINDOW_HEIGHT - LAUNCH_SPRING_SIZE.y)/2);
 // positions for other circle obstacles
-// const sf::Vector2f OB_POS_2((WINDOW_WIDTH - (LAUNCH_SPRING_SIZE.x * 5.f)), (WINDOW_HEIGHT - LAUNCH_SPRING_SIZE.y)/2);
+const sf::Vector2f OB_POS_2((WINDOW_WIDTH - (LAUNCH_SPRING_SIZE.x * 5.f)), (WINDOW_HEIGHT - LAUNCH_SPRING_SIZE.y)/2);
 // const sf::Vector2f OB_POS_3((WINDOW_WIDTH - (LAUNCH_SPRING_SIZE.x * 5.f)), (WINDOW_HEIGHT - LAUNCH_SPRING_SIZE.y)/2);
 const sf::Color ROOF_COLOR = sf::Color::Black;
 
