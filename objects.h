@@ -4,7 +4,7 @@
 #include "constants.h"
 #include <array>
 #include "scene.h"
-
+//Kien:
 inline float vector2fLengthSquare(const sf::Vector2f& vec) {
     return vec.x * vec.x + vec.y * vec.y;
 }
@@ -203,7 +203,7 @@ public:
         return rightTriangle;
     }
 };
-
+//Ruth:
 class Obstacle_Circle {
 sf::CircleShape circle;
 sf::Vector2f velocity;
@@ -211,7 +211,6 @@ float radius;
 float mass;
 
 public:
-// (OB_BALL_RADIUS, OB_BALL_COLOR, OB_POS),
     Obstacle_Circle(float inputRadius, sf::Color color, const sf::Vector2f position, float inputMass): mass(inputMass) {
         circle.setRadius(inputRadius);
         circle.setFillColor(color);
@@ -242,21 +241,17 @@ private:
     int score;
 public:
     ScoreKeeper(const sf::Vector2f position){
-        //font text
         sf::Font myFont;
-        std::string myfontFileName="/Users/wackyvoid/Desktop/Project5611/Project1PinBall/Roboto-Regular.ttf";
+        //adjust fontname path to your computer when running!
+        std::string myfontFileName="/Users/wackyvoid/Desktop/Classes/Project5611/Project1PinBall/Roboto-Regular.ttf";
         if (!myFont.loadFromFile(myfontFileName)){
         	std::cout << "Could not find the font " << myfontFileName << std::endl;
-        	// return EXIT_FAILURE;
         }
         
         text_font = myFont;
         text.setFont(text_font);
-        // std::cout << "FONT: "<<  << std::endl;
         text.setString("Score: ");
-        //position
         text.setPosition(position);
-        // "score: #"
         text.setCharacterSize(20);
         text.setFillColor(sf::Color::Red);
         score = 0;
@@ -274,6 +269,7 @@ public:
         score = new_score;
     }
 };
+//Kien:
 class LaunchSpring {
 private:
     sf::RectangleShape shape;
@@ -322,9 +318,11 @@ public:
         return sqrtf(2.f * SPRING_CONSTANT * maxCompress * maxCompress / SPRING_MASS);
     }
 };
+
+//Ruth:
 int total_balls;
 int deleted_balls;
-
+//Kien:
 class Ball {
 private:
     sf::CircleShape shape;
@@ -332,9 +330,11 @@ private:
     float radius;
     float mass;
     int id;
+    //Ruth:
     bool isdeleted;
 
 public:
+    //Kien:
     Ball(float inputRadius, sf::Vector2f inputCenter, sf::Color color, const float ballMass, int inputId) {
         shape.setRadius(inputRadius);
         shape.setFillColor(color);
@@ -343,8 +343,10 @@ public:
         mass = ballMass;
         id = inputId;
         shape.setPosition(inputCenter.x - radius, inputCenter.y - radius);
+        //Ruth:
         isdeleted = false;
     }
+    //Kien:
     Ball(const Ball& otherBall) {
         radius = otherBall.getRadius();
         shape.setRadius(radius);
@@ -372,15 +374,9 @@ public:
     sf::Color getColor() const {
         return shape.getFillColor();
     }
+    //Ruth:
     void setShapePosition(sf::Vector2f new_pos){
         shape.setPosition(new_pos);
-    }
-    sf::Vector2f getCenter() const {
-        return {shape.getPosition().x + radius, shape.getPosition().y + radius};
-    }
-
-    sf::Vector2f getPosition() const {
-        return shape.getPosition();
     }
     void setCenter(sf::Vector2f new_position){
         shape.setPosition(new_position);
@@ -388,13 +384,21 @@ public:
     void setVelocity(sf::Vector2f new_vel){
         velocity = new_vel;
     }
+    //Kien:
+    sf::Vector2f getCenter() const {
+        return {shape.getPosition().x + radius, shape.getPosition().y + radius};
+    }
+
+    sf::Vector2f getPosition() const {
+        return shape.getPosition();
+    }
     void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper, Obstacle_Circle &obstacle_circle, Obstacle_Circle &obstacle_circle_2, ScoreKeeper &score_keeper, std::vector<Ball> &balls) {
+        //Ruth:
         if(!isdeleted){
             total_balls = balls.size();
-            // std::cout << "NUMBER"<< num_balls << std::endl;
             int current_count = score_keeper.getScore();
+            //Kien:
             shape.move(velocity);
-            //std::cout << velocity << std::endl;
             if (collideAndReflectPolygon(rectangleToConvex(spring.getShape()), SPRING_MASS, { 0.f, -spring.getSpeed() })) {
                 //std::cout << "Collided with spring." << std::endl;
                 spring.setHit(true);
@@ -415,16 +419,15 @@ public:
                 //  std::cout << "Collided with launch wall." << std::endl;
             }
             if (collideAndReflectPolygon(leftFlipper.getShape(), FLIPPER_MASS, leftFlipper.getAngleVelocity()*(getCenter() - leftFlipper.getPivot()))) {
-                //  std::cout << velocity << " " << leftFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - leftFlipper.getPivot()) << std::endl;
                 // std::cout << "Collided with left flipper." << std::endl;
             }
             if (collideAndReflectPolygon(rightFlipper.getShape(), FLIPPER_MASS, rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()))) {
-                //  std::cout << velocity << " " << rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()) << std::endl;
                 // std::cout << "Collided with right flipper." << std::endl;
             }
             if (collideAndReflectScreen()) {
                 // std::cout << "Collided with the screen." << std::endl;
             }
+            //Ruth:
             else if (collideAndReflectCircle(obstacle_circle))  {
                 current_count += 2;
                 obstacle_circle.setColor(sf::Color::Cyan);
@@ -435,18 +438,20 @@ public:
                 obstacle_circle_2.setColor(sf::Color::Cyan);
                 std::cout << "Collided with obstacle circle." << std::endl;
             }
+            //Kien:
             for (auto& ball : balls) {
                 if (ball.id != id && collideAndReflectBalls(ball, ball.getCenter(), ball.radius, ball.mass, ball.velocity)) {
                     std::cout << "Ball " << id << " collide with ball " << ball.id << std::endl;
                 }
             }
+            //Ruth:
             score_keeper.setScore(current_count);
             std::string new_text = "Score: " + std::to_string(score_keeper.getScore());
             score_keeper.setString(new_text);
+            //Kien:
             velocity.y += GRAVITY_ACC;
         }
         
-       
     }
     void reset(const LaunchSpring &spring) {
         sf::Vector2f springSize = spring.getShape().getSize();
@@ -499,13 +504,9 @@ public:
             returnVal = true;
         }
         else if (center.y + radius > WINDOW_HEIGHT) {
-            // std::cout << ballIndex << std::endl;
-            // std::cout << "bottom" << std::endl;
             isdeleted = true;
+            // Ruth:
             deleted_balls += 1;
-            // delete Ball;
-            // balls.erase(shape.id);
-
             if (deleted_balls == total_balls){
                 //close window
                 exit(0);
@@ -513,7 +514,7 @@ public:
             
             return true;
         }
-
+        //Kien:
         shape.setPosition(clip(center.x, radius, WINDOW_WIDTH - radius) - radius, clip(center.y, radius, WINDOW_HEIGHT - radius) - radius);
         return returnVal;
     }
@@ -525,7 +526,7 @@ public:
         if (collideAndReflectLine(convex.getPoint(numVertices - 1), convex.getPoint(0), shapeMass, shapeVelocity)) return true;
         return false;
     }
-    
+    //Ruth:
     bool collideAndReflectCircle(const Obstacle_Circle &obstacle_Circle ) {
         float obstacle_radius = obstacle_Circle.getRadius();
         sf::Vector2f obstacle_center = obstacle_Circle.getCenter();
@@ -535,16 +536,13 @@ public:
         sf::Vector2f center = getCenter();
         bool returnVal = false;
         if(vector2fLengthSquare(center-obstacle_center) <= sum_radius * sum_radius){
-            //velocity = (mass * velocity - obstacle_mass*velocity*RESTITUTION) / (mass + obstacle_mass);
             velocity = vector2fNormalize(center - obstacle_center, vector2fLength(velocity) * RESTITUTION);
             returnVal = true;
         }
-
-        //based off of billards:
-
-        //shape.setPosition(clip(center.x, radius, WINDOW_WIDTH - radius) - radius, clip(center.y, radius, WINDOW_HEIGHT - radius) - radius);
         return returnVal;
     }
+
+    //Mixed Ruth & Kien:
     bool collideAndReflectBalls(Ball &other_ball, sf::Vector2f otherCenter, const float otherRadius, const float otherMass = 0., const sf::Vector2f& otherVelocity = sf::Vector2f(0., 0.)) {
         float sumRadius = radius + otherRadius;
         sf::Vector2f center = getCenter();

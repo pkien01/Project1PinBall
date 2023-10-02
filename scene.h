@@ -2,33 +2,35 @@
 
 #include "objects.h"
 
-// sf::Font myFont.loadFromFile(myfontFileName);
-// std::string myfontFileName="/Users/wackyvoid/Desktop/Project5611/Project1PinBall/Roboto-Regular.ttf";
-// myFont.loadFromFile(myfontFileName);
 class Scene {
 public:
+    //Kien:
     LaunchWall launchWall;
     LaunchSpring launchSpring;
     std::vector<Ball> balls;
     LeftFlipper leftFlipper;
     RightFlipper rightFlipper;
     Roof roof;
+    //Ruth:
     Obstacle_Circle obstacle_circle;
     Obstacle_Circle obstacle_circle_2;
     ScoreKeeper score_keep;
+    //Kien:
     Scene() :
         leftFlipper(FLIPPER_SIZE, LEFT_FLIPPER_POS, FLIPPER_COLOR, FLIPPER_INIT_ANGLE),
         rightFlipper(FLIPPER_SIZE, RIGHT_FLIPPER_POS, FLIPPER_COLOR, FLIPPER_INIT_ANGLE),
         launchWall(LAUNCH_WALL_POS, LAUNCH_WALL_SIZE, LAUNCH_WALL_COLOR),
         launchSpring(LAUNCH_SPRING_POS, LAUNCH_SPRING_SIZE, LAUNCH_SPRING_COLOR),
         roof(ROOF_POINTS, ROOF_COLOR),
+        //Ruth:
         obstacle_circle(OB_BALL_RADIUS, OB_BALL_COLOR, OB_POS, OB_MASS),
         obstacle_circle_2(OB_BALL_RADIUS, OB_BALL_COLOR, OB_POS_2, OB_MASS),
         score_keep(SCORE_POS){
+            //Kien:
             balls.emplace_back(BALL_RADIUS, sf::Vector2f(LAUNCH_SPRING_POS.x + LAUNCH_SPRING_SIZE.x / 2, LAUNCH_SPRING_POS.y - BALL_RADIUS), BALL_COLOR, BALL_MASS, 0);
 
         }
-    
+    //Kien:
     void update(bool addBall) {
         if (addBall) {
             std::cout << "enter" << std::endl;
@@ -65,6 +67,7 @@ public:
         window.draw(rightFlipper.getShape());
         window.draw(roof.getLeftSide());
         window.draw(roof.getRightSide());
+        //Ruth:
         window.draw(obstacle_circle.getShape());
         window.draw(obstacle_circle_2.getShape());
         window.draw(score_keep.getText());
