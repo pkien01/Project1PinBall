@@ -2,17 +2,21 @@
 
 #include "objects.h"
 
+// sf::Font myFont.loadFromFile(myfontFileName);
+// std::string myfontFileName="/Users/wackyvoid/Desktop/Project5611/Project1PinBall/Roboto-Regular.ttf";
+// myFont.loadFromFile(myfontFileName);
 class Scene {
 public:
     LaunchWall launchWall;
     LaunchSpring launchSpring;
     Ball ball;
-    Ball ball_2;
+    // Ball ball_2;
     LeftFlipper leftFlipper;
     RightFlipper rightFlipper;
     Roof roof;
     Obstacle_Circle obstacle_circle;
     Obstacle_Circle obstacle_circle_2;
+    ScoreKeeper score_keep;
     Scene() :
         leftFlipper(FLIPPER_SIZE, LEFT_FLIPPER_POS, FLIPPER_COLOR, FLIPPER_INIT_ANGLE),
         rightFlipper(FLIPPER_SIZE, RIGHT_FLIPPER_POS, FLIPPER_COLOR, FLIPPER_INIT_ANGLE),
@@ -21,27 +25,30 @@ public:
         roof(ROOF_POINTS, ROOF_COLOR),
         obstacle_circle(OB_BALL_RADIUS, OB_BALL_COLOR, OB_POS, OB_MASS),
         obstacle_circle_2(OB_BALL_RADIUS, OB_BALL_COLOR, OB_POS_2, OB_MASS),
-        ball(BALL_RADIUS, BALL_COLOR, launchSpring, BALL_MASS, 0),
-        ball_2(BALL_RADIUS, BALL_COLOR_2, launchSpring, BALL_MASS, 1){}
+        score_keep(SCORE_POS),
+        ball(BALL_RADIUS, BALL_COLOR, launchSpring, BALL_MASS, 0){}
+        // ball_2(BALL_RADIUS, BALL_COLOR_2, launchSpring, BALL_MASS, 1){}
     
     void update() {
         launchSpring.compress(LAUNCH_SPRING_COMPRESS_SPEED);
         leftFlipper.update();
         rightFlipper.update();
-        ball.update(launchSpring, launchWall, roof, leftFlipper, rightFlipper, obstacle_circle, obstacle_circle_2, ball_2);
-        ball_2.update(launchSpring, launchWall, roof, leftFlipper, rightFlipper, obstacle_circle, obstacle_circle_2, ball);
+        ball.update(launchSpring, launchWall, roof, leftFlipper, rightFlipper, obstacle_circle, obstacle_circle_2,score_keep);
+        // ball_2.update(launchSpring, launchWall, roof, leftFlipper, rightFlipper, obstacle_circle, obstacle_circle_2, ball);
     }
 
     void draw(sf::RenderWindow& window) {
         window.draw(launchWall.getShape());
         window.draw(launchSpring.getShape());
         window.draw(ball.getShape());
-        window.draw(ball_2.getShape());
+        // window.draw(ball_2.getShape());
         window.draw(leftFlipper.getShape());
         window.draw(rightFlipper.getShape());
         window.draw(roof.getLeftSide());
         window.draw(roof.getRightSide());
         window.draw(obstacle_circle.getShape());
         window.draw(obstacle_circle_2.getShape());
+        window.draw(score_keep.getText());
+
     }
 };

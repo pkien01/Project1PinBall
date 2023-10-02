@@ -238,6 +238,45 @@ public:
     }
 
 };
+class ScoreKeeper{
+private:
+    sf::Font text_font;
+    sf::Text text;
+    int score;
+public:
+    ScoreKeeper(const sf::Vector2f position){
+        //font text
+        sf::Font myFont;
+        std::string myfontFileName="/Users/wackyvoid/Desktop/Project5611/Project1PinBall/Roboto-Regular.ttf";
+        if (!myFont.loadFromFile(myfontFileName)){
+        	std::cout << "Could not find the font " << myfontFileName << std::endl;
+        	// return EXIT_FAILURE;
+        }
+        
+        text_font = myFont;
+        text.setFont(text_font);
+        // std::cout << "FONT: "<<  << std::endl;
+        text.setString("Score: ");
+        //position
+        text.setPosition(position);
+        // "score: #"
+        text.setCharacterSize(20);
+        text.setFillColor(sf::Color::Red);
+        score = 0;
+    }
+    sf::Text getText() const {
+        return text;
+    }
+    void setString(std::string new_string) {
+        text.setString(new_string);
+    }
+    int getScore() const {
+        return score;
+    }
+    void setScore(int new_score) {
+        score = new_score;
+    }
+};
 
 class LaunchSpring {
 private:
@@ -279,6 +318,8 @@ public:
     }
 };
 
+int num_balls = 1;
+
 class Ball {
 private:
     sf::CircleShape shape;
@@ -314,17 +355,23 @@ public:
     void setVelocity(sf::Vector2f new_vel){
         velocity = new_vel;
     }
-    void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper, Obstacle_Circle &obstacle_circle, Obstacle_Circle &obstacle_circle_2, Ball &other_ball) {
+    void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper, Obstacle_Circle &obstacle_circle, Obstacle_Circle &obstacle_circle_2, ScoreKeeper &score_keeper) {
+        // , Ball &other_ball
         shape.move(velocity);
-        //TO
+        int current_count = score_keeper.getScore();
+        
+        //  std::cout << " score pos: " << score_keeper.getText().getCharacterSize() << std::endl;
+        
         // std::cout << ballIndex << " velocity: " << velocity << std::endl;
         if (collideAndReflectPolygon(rectangleToConvex(spring.getShape()), SPRING_MASS, { 0.f, -spring.getSpeed() })) {
             spring.reset();
         }
         else if (collideAndReflectPolygon(roof.getLeftSide())) {
+            current_count += 5;
             std::cout << "Collided with left side roof." << std::endl;
         }
         else if (collideAndReflectPolygon(roof.getRightSide())) {
+            current_count += 5;
             std::cout << "Collided with right side roof." <<  std::endl;
         }
         else if (collideAndReflectPolygon(launchWall.getShape())) {
@@ -342,16 +389,18 @@ public:
             std::cout << "Collided with the screen." << std::endl;
         }
         else if (collideAndReflectCircle(obstacle_circle))  {
+            current_count += 2;
             obstacle_circle.setColor(sf::Color::Cyan);
             std::cout << "Collided with obstacle circle." << std::endl;
         }
         else if (collideAndReflectCircle(obstacle_circle_2))  {
+            current_count += 2;
             obstacle_circle_2.setColor(sf::Color::Cyan);
             std::cout << "Collided with obstacle circle." << std::endl;
         }
-        else if (collideAndReflectBall(other_ball))  {
-            std::cout << "Collided with other ball." << std::endl;
-        }
+        score_keeper.setScore(current_count);
+        std::string new_text = "Score: " + std::to_string(score_keeper.getScore());
+        score_keeper.setString(new_text);
         velocity.y += GRAVITY_ACC;
        
     }
@@ -396,6 +445,8 @@ public:
         bool returnVal = false;
         if (center.x - radius < 0) {
             velocity = vector2fNormalize(velocity - sf::Vector2f(-center.x, 0) * 2.f, vector2fLength(velocity) * RESTITUTION);
+            // std::cout << "Left" << std::endl;
+
             returnVal = true;
         }
         else if (center.y - radius < 0) {
@@ -408,8 +459,15 @@ public:
         }
         else if (center.y + radius > WINDOW_HEIGHT) {
             // std::cout << ballIndex << std::endl;
-            velocity = vector2fNormalize(velocity - sf::Vector2f(0, WINDOW_HEIGHT - center.y) * 2.f, vector2fLength(velocity) * RESTITUTION);
-            returnVal = true;
+            std::cout << "bottom" << std::endl;
+            num_balls -= 1;
+            if (num_balls == 0){
+                //close window
+                exit(0);
+            }
+            //end game if all balls are gone
+            // velocity = vector2fNormalize(velocity - sf::Vector2f(0, WINDOW_HEIGHT - center.y) * 2.f, vector2fLength(velocity) * RESTITUTION);
+            return true;
         }
 
         shape.setPosition(clip(center.x, radius, WINDOW_WIDTH - radius) - radius, clip(center.y, radius, WINDOW_HEIGHT - radius) - radius);
@@ -479,8 +537,8 @@ public:
             shape.setPosition(new_curr_ball_pos);
 
             // pos[j].add(delta.normalized().times(overlap));
-            sf::Vector2f new_other_ball_pos = other_center - (2.f * dir * overlap);
-            otherBall.setShapePosition(new_other_ball_pos);
+            // sf::Vector2f new_other_ball_pos = other_center - (2.f * dir * overlap);
+            // otherBall.setShapePosition(new_other_ball_pos);
             
             // // float v1 = dot(vel[i], dir);
             // // float v2 = dot(vel[j], dir);
