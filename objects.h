@@ -322,7 +322,8 @@ public:
         return sqrtf(2.f * SPRING_CONSTANT * maxCompress * maxCompress / SPRING_MASS);
     }
 };
-int num_balls = 3;
+int total_balls;
+int deleted_balls;
 
 class Ball {
 private:
@@ -388,60 +389,63 @@ public:
         velocity = new_vel;
     }
     void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper, Obstacle_Circle &obstacle_circle, Obstacle_Circle &obstacle_circle_2, ScoreKeeper &score_keeper, std::vector<Ball> &balls) {
-        num_balls = balls.size();
-        // std::cout << "NUMBER"<< num_balls << std::endl;
-        int current_count = score_keeper.getScore();
-        shape.move(velocity);
-        //std::cout << velocity << std::endl;
-        if (collideAndReflectPolygon(rectangleToConvex(spring.getShape()), SPRING_MASS, { 0.f, -spring.getSpeed() })) {
-            //std::cout << "Collided with spring." << std::endl;
-            spring.setHit(true);
-            spring.reset();
-        }
-        else {
-            spring.setHit(false);
-        }
-        if (collideAndReflectPolygon(roof.getLeftSide())) {
-            current_count += 5;
-            //std::cout << "Collided with left side roof." << std::endl;
-        }
-        if (collideAndReflectPolygon(roof.getRightSide())) {
-            current_count += 5;
-           // std::cout << "Collided with right side roof." <<  std::endl;
-        }
-        if (collideAndReflectPolygon(launchWall.getShape())) {
-          //  std::cout << "Collided with launch wall." << std::endl;
-        }
-        if (collideAndReflectPolygon(leftFlipper.getShape(), FLIPPER_MASS, leftFlipper.getAngleVelocity()*(getCenter() - leftFlipper.getPivot()))) {
-          //  std::cout << velocity << " " << leftFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - leftFlipper.getPivot()) << std::endl;
-           // std::cout << "Collided with left flipper." << std::endl;
-        }
-        if (collideAndReflectPolygon(rightFlipper.getShape(), FLIPPER_MASS, rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()))) {
-          //  std::cout << velocity << " " << rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()) << std::endl;
-           // std::cout << "Collided with right flipper." << std::endl;
-        }
-        if (collideAndReflectScreen()) {
-           // std::cout << "Collided with the screen." << std::endl;
-        }
-        else if (collideAndReflectCircle(obstacle_circle))  {
-            current_count += 2;
-            obstacle_circle.setColor(sf::Color::Cyan);
-            std::cout << "Collided with obstacle circle." << std::endl;
-        }
-        else if (collideAndReflectCircle(obstacle_circle_2))  {
-            current_count += 2;
-            obstacle_circle_2.setColor(sf::Color::Cyan);
-            std::cout << "Collided with obstacle circle." << std::endl;
-        }
-        for (auto& ball : balls) {
-            if (ball.id != id && collideAndReflectBalls(ball, ball.getCenter(), ball.radius, ball.mass, ball.velocity)) {
-                std::cout << "Ball " << id << " collide with ball " << ball.id << std::endl;
+        if(!isdeleted){
+            total_balls = balls.size();
+            // std::cout << "NUMBER"<< num_balls << std::endl;
+            int current_count = score_keeper.getScore();
+            shape.move(velocity);
+            //std::cout << velocity << std::endl;
+            if (collideAndReflectPolygon(rectangleToConvex(spring.getShape()), SPRING_MASS, { 0.f, -spring.getSpeed() })) {
+                //std::cout << "Collided with spring." << std::endl;
+                spring.setHit(true);
+                spring.reset();
             }
+            else {
+                spring.setHit(false);
+            }
+            if (collideAndReflectPolygon(roof.getLeftSide())) {
+                current_count += 5;
+                //std::cout << "Collided with left side roof." << std::endl;
+            }
+            if (collideAndReflectPolygon(roof.getRightSide())) {
+                current_count += 5;
+                // std::cout << "Collided with right side roof." <<  std::endl;
+            }
+            if (collideAndReflectPolygon(launchWall.getShape())) {
+                //  std::cout << "Collided with launch wall." << std::endl;
+            }
+            if (collideAndReflectPolygon(leftFlipper.getShape(), FLIPPER_MASS, leftFlipper.getAngleVelocity()*(getCenter() - leftFlipper.getPivot()))) {
+                //  std::cout << velocity << " " << leftFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - leftFlipper.getPivot()) << std::endl;
+                // std::cout << "Collided with left flipper." << std::endl;
+            }
+            if (collideAndReflectPolygon(rightFlipper.getShape(), FLIPPER_MASS, rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()))) {
+                //  std::cout << velocity << " " << rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()) << std::endl;
+                // std::cout << "Collided with right flipper." << std::endl;
+            }
+            if (collideAndReflectScreen()) {
+                // std::cout << "Collided with the screen." << std::endl;
+            }
+            else if (collideAndReflectCircle(obstacle_circle))  {
+                current_count += 2;
+                obstacle_circle.setColor(sf::Color::Cyan);
+                std::cout << "Collided with obstacle circle." << std::endl;
+            }
+            else if (collideAndReflectCircle(obstacle_circle_2))  {
+                current_count += 2;
+                obstacle_circle_2.setColor(sf::Color::Cyan);
+                std::cout << "Collided with obstacle circle." << std::endl;
+            }
+            for (auto& ball : balls) {
+                if (ball.id != id && collideAndReflectBalls(ball, ball.getCenter(), ball.radius, ball.mass, ball.velocity)) {
+                    std::cout << "Ball " << id << " collide with ball " << ball.id << std::endl;
+                }
+            }
+            score_keeper.setScore(current_count);
+            std::string new_text = "Score: " + std::to_string(score_keeper.getScore());
+            score_keeper.setString(new_text);
+            velocity.y += GRAVITY_ACC;
         }
-        score_keeper.setScore(current_count);
-        std::string new_text = "Score: " + std::to_string(score_keeper.getScore());
-        score_keeper.setString(new_text);
-        velocity.y += GRAVITY_ACC;
+        
        
     }
     void reset(const LaunchSpring &spring) {
@@ -496,15 +500,16 @@ public:
         }
         else if (center.y + radius > WINDOW_HEIGHT) {
             // std::cout << ballIndex << std::endl;
-            std::cout << "bottom" << std::endl;
-            num_balls -= 1;
+            // std::cout << "bottom" << std::endl;
+            isdeleted = true;
+            deleted_balls += 1;
             // delete Ball;
             // balls.erase(shape.id);
 
-            // if (num_balls == 0){
-            //     //close window
-            //     exit(0);
-            // }
+            if (deleted_balls == total_balls){
+                //close window
+                exit(0);
+            }
             
             return true;
         }
@@ -545,19 +550,12 @@ public:
         sf::Vector2f center = getCenter();
         sf::Vector2f delta = center - otherCenter;
         float dist = vector2fLength(delta);
-        //std::cout << sqrtf(distSquare) << " " << sumRadius << std::endl;
         if (dist > sumRadius) return false;
 
         sf::Vector2f dir = vector2fNormalize(delta);
 
         float overlap = 0.5f * (dist - radius - otherRadius);
-        std::cout << "dir * overlap" << dir * overlap <<std::endl;
-        std::cout << "center" << center<<std::endl;
-        std::cout << "current position" << center<<std::endl;
-        // pos[i].subtract(delta.normalized().times(overlap));
         setShapePosition(getPosition() - (dir * overlap));
-        std::cout << "end position" << getPosition() <<std::endl;
-        // pos[j].add(delta.normalized().times(overlap));
         float dirVelocity = otherMass / (mass + otherMass) * ((mass / otherMass) * vector2fDot(velocity, dir) + (1.f) * vector2fDot(otherVelocity, dir));
         sf::Vector2f tangent = { -dir.y, dir.x };
         float tangentVelocity = vector2fDot(velocity, tangent);
