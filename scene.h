@@ -9,8 +9,7 @@ class Scene {
 public:
     LaunchWall launchWall;
     LaunchSpring launchSpring;
-    Ball ball;
-    // Ball ball_2;
+    std::vector<Ball> balls;
     LeftFlipper leftFlipper;
     RightFlipper rightFlipper;
     Roof roof;
@@ -25,23 +24,43 @@ public:
         roof(ROOF_POINTS, ROOF_COLOR),
         obstacle_circle(OB_BALL_RADIUS, OB_BALL_COLOR, OB_POS, OB_MASS),
         obstacle_circle_2(OB_BALL_RADIUS, OB_BALL_COLOR, OB_POS_2, OB_MASS),
-        score_keep(SCORE_POS),
-        ball(BALL_RADIUS, BALL_COLOR, launchSpring, BALL_MASS, 0){}
-        // ball_2(BALL_RADIUS, BALL_COLOR_2, launchSpring, BALL_MASS, 1){}
+        score_keep(SCORE_POS){
+            balls.emplace_back(BALL_RADIUS, sf::Vector2f(LAUNCH_SPRING_POS.x + LAUNCH_SPRING_SIZE.x / 2, LAUNCH_SPRING_POS.y - BALL_RADIUS), BALL_COLOR, BALL_MASS, 0);
+
+        }
     
-    void update() {
+    void update(bool addBall) {
+        if (addBall) {
+            std::cout << "enter" << std::endl;
+            int order = -1;
+            for (int i = 0;; i++) {
+                sf::Vector2f curCenter = sf::Vector2f(LAUNCH_SPRING_POS.x + LAUNCH_SPRING_SIZE.x / 2, LAUNCH_SPRING_POS.y - BALL_RADIUS * (2 * i + 1));
+                if (curCenter.y <= BALL_RADIUS) break;
+                if (std::all_of(balls.begin(), balls.end(), [&](const Ball& ball) {
+                    return vector2fLengthSquare(ball.getCenter() - curCenter) > BALL_RADIUS * BALL_RADIUS * 4.f;
+                    })) {
+                    order = i;
+                    break;
+                }
+            }
+            std::cout << "order: " << order << std::endl;
+            if (order >= 0)
+                balls.emplace_back(BALL_RADIUS, sf::Vector2f(LAUNCH_SPRING_POS.x + LAUNCH_SPRING_SIZE.x / 2, LAUNCH_SPRING_POS.y - BALL_RADIUS * (2 * order + 1)), BALL_COLOR, BALL_MASS, balls.size());
+        }
         launchSpring.compress(LAUNCH_SPRING_COMPRESS_SPEED);
         leftFlipper.update();
         rightFlipper.update();
-        ball.update(launchSpring, launchWall, roof, leftFlipper, rightFlipper, obstacle_circle, obstacle_circle_2,score_keep);
-        // ball_2.update(launchSpring, launchWall, roof, leftFlipper, rightFlipper, obstacle_circle, obstacle_circle_2, ball);
+
+        std::vector<Ball> oldBalls(balls.begin(), balls.end());
+        for (auto &ball: balls) 
+            ball.update(launchSpring, launchWall, roof, leftFlipper, rightFlipper, obstacle_circle, obstacle_circle_2, score_keep, oldBalls);
     }
 
     void draw(sf::RenderWindow& window) {
         window.draw(launchWall.getShape());
         window.draw(launchSpring.getShape());
-        window.draw(ball.getShape());
-        // window.draw(ball_2.getShape());
+        for (auto& ball: balls)
+            window.draw(ball.getShape());
         window.draw(leftFlipper.getShape());
         window.draw(rightFlipper.getShape());
         window.draw(roof.getLeftSide());

@@ -4,9 +4,7 @@
 #include "constants.h"
 #include <array>
 #include "scene.h"
-#include <math.h>
 
-// Vector 2 code
 inline float vector2fLengthSquare(const sf::Vector2f& vec) {
     return vec.x * vec.x + vec.y * vec.y;
 }
@@ -16,8 +14,11 @@ inline float vector2fLength(const sf::Vector2f& vec) {
 inline float vector2fDot(const sf::Vector2f& vec1, const sf::Vector2f& vec2) {
     return vec1.x * vec2.x + vec1.y * vec2.y;
 }
-inline sf::Vector2f vector2fNormalize(const sf::Vector2f& vec, const float newLengthSquare = 1.f) {
-    return vec*newLengthSquare / vector2fLength(vec);
+inline sf::Vector2f vector2fNormalize(const sf::Vector2f& vec, const float newLength = 1.f) {
+    return vec*newLength / vector2fLength(vec);
+}
+inline sf::Vector2f vector2fProjection(const sf::Vector2f& from, const sf::Vector2f& to) {
+    return vector2fDot(from, to) / vector2fLengthSquare(to) * to;
 }
 inline float clip(float val, float l, float r) {
     if (val < l) return l;
@@ -29,10 +30,6 @@ inline sf::Vector2f rotatePoint(const sf::Vector2f& curPoint, float angle) {
     return {cos_angle * curPoint.x - sin_angle * curPoint.y, sin_angle * curPoint.x + cos_angle * curPoint.y };
 }
 
-// inline float distance_square(const sf::Vector2f& vec1, const sf::Vector2f& vec2) {
-//     float diff_x = vec1.x - vec2.x, diff_y = vec1.y - vec2.y;
-//     return diff_x * diff_x + diff_y * diff_y;
-// }
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
     os << "[";
@@ -277,12 +274,12 @@ public:
         score = new_score;
     }
 };
-
 class LaunchSpring {
 private:
     sf::RectangleShape shape;
     sf::Vector2f initSize, initPos;
     float maxCompress;
+    float hit;
 public:
     LaunchSpring(sf::Vector2f pos, sf::Vector2f size, sf::Color color) {
         shape.setPosition(pos);
@@ -291,6 +288,7 @@ public:
         initSize = size;
         initPos = pos;
         maxCompress = 0.f;
+        hit = false;
     }
     void compress(float speed) {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
@@ -299,7 +297,11 @@ public:
             maxCompress = std::max(maxCompress, initSize.y - nextHeight);
         }
         else {
-            float nextHeight = std::min(initSize.y, shape.getSize().y + speed);
+            float nextHeight = shape.getSize().y + speed;
+            if (nextHeight > initSize.y) {
+                nextHeight = initSize.y;
+                if (!hit) reset();
+            }
             shape.setSize(sf::Vector2f(initSize.x, nextHeight));
         }
         shape.setPosition(initPos.x, initPos.y + initSize.y - shape.getSize().y);
@@ -313,12 +315,14 @@ public:
     void reset() {
         maxCompress = 0.f;
     }
+    void setHit(bool hitVal) {
+        hit = hitVal;
+    }
     float getSpeed() {
         return sqrtf(2.f * SPRING_CONSTANT * maxCompress * maxCompress / SPRING_MASS);
     }
 };
-
-int num_balls = 1;
+int num_balls = 3;
 
 class Ball {
 private:
@@ -326,25 +330,46 @@ private:
     sf::Vector2f velocity;
     float radius;
     float mass;
-    float ballIndex;
+    int id;
+    bool isdeleted;
 
 public:
-    Ball(float inputRadius, sf::Color color, const LaunchSpring &spring, const float ballMass, float ball_index) {
+    Ball(float inputRadius, sf::Vector2f inputCenter, sf::Color color, const float ballMass, int inputId) {
         shape.setRadius(inputRadius);
         shape.setFillColor(color);
         velocity = sf::Vector2f(0.f, 0.f); // Initial velocity
         radius = inputRadius;
         mass = ballMass;
-        ballIndex = ball_index;
-        
-        sf::Vector2f springSize = spring.getShape().getSize();
-        sf::Vector2f springPos = spring.getShape().getPosition();
-        if (ball_index == 1){
-            shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 10.f));
-        }else{
-            shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 2.f));
-        }
-        
+        id = inputId;
+        shape.setPosition(inputCenter.x - radius, inputCenter.y - radius);
+        isdeleted = false;
+    }
+    Ball(const Ball& otherBall) {
+        radius = otherBall.getRadius();
+        shape.setRadius(radius);
+        shape.setFillColor(otherBall.getColor());
+        velocity = otherBall.velocity; // Initial velocity
+        mass = otherBall.getMass();
+        id = otherBall.getId();
+        shape.setPosition(otherBall.getShape().getPosition());
+    }
+    int getId() const {
+        return id;
+    }
+    float getRadius() const {
+        return radius;
+    }
+    float getMass() const {
+        return mass;
+    }
+    sf::CircleShape getShape() const {
+        return shape;
+    }
+    sf::Vector2f getVelocity() const {
+        return velocity;
+    }
+    sf::Color getColor() const {
+        return shape.getFillColor();
     }
     void setShapePosition(sf::Vector2f new_pos){
         shape.setPosition(new_pos);
@@ -352,41 +377,51 @@ public:
     sf::Vector2f getCenter() const {
         return {shape.getPosition().x + radius, shape.getPosition().y + radius};
     }
+
+    sf::Vector2f getPosition() const {
+        return shape.getPosition();
+    }
+    void setCenter(sf::Vector2f new_position){
+        shape.setPosition(new_position);
+    }
     void setVelocity(sf::Vector2f new_vel){
         velocity = new_vel;
     }
-    void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper, Obstacle_Circle &obstacle_circle, Obstacle_Circle &obstacle_circle_2, ScoreKeeper &score_keeper) {
-        // , Ball &other_ball
-        shape.move(velocity);
+    void update(LaunchSpring &spring, const LaunchWall &launchWall, const Roof &roof, const LeftFlipper& leftFlipper, const RightFlipper &rightFlipper, Obstacle_Circle &obstacle_circle, Obstacle_Circle &obstacle_circle_2, ScoreKeeper &score_keeper, std::vector<Ball> &balls) {
+        num_balls = balls.size();
+        // std::cout << "NUMBER"<< num_balls << std::endl;
         int current_count = score_keeper.getScore();
-        
-        //  std::cout << " score pos: " << score_keeper.getText().getCharacterSize() << std::endl;
-        
-        // std::cout << ballIndex << " velocity: " << velocity << std::endl;
+        shape.move(velocity);
+        //std::cout << velocity << std::endl;
         if (collideAndReflectPolygon(rectangleToConvex(spring.getShape()), SPRING_MASS, { 0.f, -spring.getSpeed() })) {
+            //std::cout << "Collided with spring." << std::endl;
+            spring.setHit(true);
             spring.reset();
         }
-        else if (collideAndReflectPolygon(roof.getLeftSide())) {
+        else {
+            spring.setHit(false);
+        }
+        if (collideAndReflectPolygon(roof.getLeftSide())) {
             current_count += 5;
-            std::cout << "Collided with left side roof." << std::endl;
+            //std::cout << "Collided with left side roof." << std::endl;
         }
-        else if (collideAndReflectPolygon(roof.getRightSide())) {
+        if (collideAndReflectPolygon(roof.getRightSide())) {
             current_count += 5;
-            std::cout << "Collided with right side roof." <<  std::endl;
+           // std::cout << "Collided with right side roof." <<  std::endl;
         }
-        else if (collideAndReflectPolygon(launchWall.getShape())) {
-            std::cout << "Collided with launch wall." << std::endl;
+        if (collideAndReflectPolygon(launchWall.getShape())) {
+          //  std::cout << "Collided with launch wall." << std::endl;
         }
-        else if (collideAndReflectPolygon(leftFlipper.getShape(), FLIPPER_MASS, leftFlipper.getAngleVelocity()*(getCenter() - leftFlipper.getPivot()))) {
-            std::cout << velocity << " " << leftFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - leftFlipper.getPivot()) << std::endl;
-            std::cout << "Collided with left flipper." << std::endl;
+        if (collideAndReflectPolygon(leftFlipper.getShape(), FLIPPER_MASS, leftFlipper.getAngleVelocity()*(getCenter() - leftFlipper.getPivot()))) {
+          //  std::cout << velocity << " " << leftFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - leftFlipper.getPivot()) << std::endl;
+           // std::cout << "Collided with left flipper." << std::endl;
         }
-        else if (collideAndReflectPolygon(rightFlipper.getShape(), FLIPPER_MASS, rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()))) {
-            std::cout << velocity << " " << rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()) << std::endl;
-            std::cout << "Collided with right flipper." << std::endl;
+        if (collideAndReflectPolygon(rightFlipper.getShape(), FLIPPER_MASS, rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()))) {
+          //  std::cout << velocity << " " << rightFlipper.getAngleVelocity() * vector2fNormalize(getCenter() - rightFlipper.getPivot()) << std::endl;
+           // std::cout << "Collided with right flipper." << std::endl;
         }
-        else if (collideAndReflectScreen()) {
-            std::cout << "Collided with the screen." << std::endl;
+        if (collideAndReflectScreen()) {
+           // std::cout << "Collided with the screen." << std::endl;
         }
         else if (collideAndReflectCircle(obstacle_circle))  {
             current_count += 2;
@@ -398,6 +433,11 @@ public:
             obstacle_circle_2.setColor(sf::Color::Cyan);
             std::cout << "Collided with obstacle circle." << std::endl;
         }
+        for (auto& ball : balls) {
+            if (ball.id != id && collideAndReflectBalls(ball, ball.getCenter(), ball.radius, ball.mass, ball.velocity)) {
+                std::cout << "Ball " << id << " collide with ball " << ball.id << std::endl;
+            }
+        }
         score_keeper.setScore(current_count);
         std::string new_text = "Score: " + std::to_string(score_keeper.getScore());
         score_keeper.setString(new_text);
@@ -407,14 +447,13 @@ public:
     void reset(const LaunchSpring &spring) {
         sf::Vector2f springSize = spring.getShape().getSize();
         sf::Vector2f springPos = spring.getShape().getPosition();
-        //shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 2.f));
+        // shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 2.f));
         velocity = sf::Vector2f(0.f, 0.f);
-        shape.setPosition(sf::Vector2f(springPos.x + springSize.x / 2 - radius, springPos.y - radius * 2.f));
     }
     bool collideWithSpring(const LaunchSpring& spring) {
         return shape.getGlobalBounds().intersects(spring.getShape().getGlobalBounds());
     }
-
+    
     bool collideAndReflectLine(const sf::Vector2f from, const sf::Vector2f to, const float shapeMass = 0., const sf::Vector2f &shapeVelocity = sf::Vector2f(0., 0.)) {
         sf::Vector2f center = getCenter();
         sf::Vector2f closestVec;
@@ -433,7 +472,7 @@ public:
 
         float distToClosest = sqrtf(vector2fLengthSquare(closestVec));
         if (distToClosest > radius) return false;
-        shape.setPosition(shape.getPosition() - vector2fNormalize(closestVec, (radius - distToClosest) * (radius - distToClosest)));
+        shape.setPosition(shape.getPosition() - vector2fNormalize(closestVec, radius - distToClosest));
 
         sf::Vector2f momentumVelocity(0.f, 0.f);
         if (shapeMass > 0.f) momentumVelocity = (mass * 2.f * velocity + (shapeMass - mass) * shapeVelocity) / (mass + shapeMass);
@@ -445,8 +484,6 @@ public:
         bool returnVal = false;
         if (center.x - radius < 0) {
             velocity = vector2fNormalize(velocity - sf::Vector2f(-center.x, 0) * 2.f, vector2fLength(velocity) * RESTITUTION);
-            // std::cout << "Left" << std::endl;
-
             returnVal = true;
         }
         else if (center.y - radius < 0) {
@@ -461,18 +498,21 @@ public:
             // std::cout << ballIndex << std::endl;
             std::cout << "bottom" << std::endl;
             num_balls -= 1;
-            if (num_balls == 0){
-                //close window
-                exit(0);
-            }
-            //end game if all balls are gone
-            // velocity = vector2fNormalize(velocity - sf::Vector2f(0, WINDOW_HEIGHT - center.y) * 2.f, vector2fLength(velocity) * RESTITUTION);
+            // delete Ball;
+            // balls.erase(shape.id);
+
+            // if (num_balls == 0){
+            //     //close window
+            //     exit(0);
+            // }
+            
             return true;
         }
 
         shape.setPosition(clip(center.x, radius, WINDOW_WIDTH - radius) - radius, clip(center.y, radius, WINDOW_HEIGHT - radius) - radius);
         return returnVal;
     }
+
     bool collideAndReflectPolygon(const sf::ConvexShape& convex, const float shapeMass = 0., const sf::Vector2f& shapeVelocity = sf::Vector2f(0., 0.)) {
         size_t numVertices = convex.getPointCount();
         for (int i = 0; i < numVertices - 1; i++)
@@ -500,73 +540,32 @@ public:
         //shape.setPosition(clip(center.x, radius, WINDOW_WIDTH - radius) - radius, clip(center.y, radius, WINDOW_HEIGHT - radius) - radius);
         return returnVal;
     }
-    float getMass() const {
-        return mass;
-    }
-
-    bool collideAndReflectBall(Ball &otherBall) {
-        //otherball set up
-        float other_radius = otherBall.radius;
-        sf::Vector2f other_center = otherBall.getCenter();
-        float other_mass = otherBall.getMass();
-        sf::Vector2f other_velocity = otherBall.velocity;
-
+    bool collideAndReflectBalls(Ball &other_ball, sf::Vector2f otherCenter, const float otherRadius, const float otherMass = 0., const sf::Vector2f& otherVelocity = sf::Vector2f(0., 0.)) {
+        float sumRadius = radius + otherRadius;
         sf::Vector2f center = getCenter();
+        sf::Vector2f delta = center - otherCenter;
+        float dist = vector2fLength(delta);
+        //std::cout << sqrtf(distSquare) << " " << sumRadius << std::endl;
+        if (dist > sumRadius) return false;
 
-        float sum_radius = other_radius + radius;
-        bool returnVal = false;
+        sf::Vector2f dir = vector2fNormalize(delta);
 
-        //if the balls are colliding
-        if(vector2fLengthSquare(center-other_center) <= sum_radius * sum_radius){
-            // Vec2 delta = pos[i].minus(pos[j]);
-            // float dist = delta.length();
-            // vector2fLength
-            sf::Vector2f delta = center-other_center;
-            float dist = vector2fLength(delta);
+        float overlap = 0.5f * (dist - radius - otherRadius);
+        std::cout << "dir * overlap" << dir * overlap <<std::endl;
+        std::cout << "center" << center<<std::endl;
+        std::cout << "current position" << center<<std::endl;
+        // pos[i].subtract(delta.normalized().times(overlap));
+        setShapePosition(getPosition() - (dir * overlap));
+        std::cout << "end position" << getPosition() <<std::endl;
+        // pos[j].add(delta.normalized().times(overlap));
+        float dirVelocity = otherMass / (mass + otherMass) * ((mass / otherMass) * vector2fDot(velocity, dir) + (1.f) * vector2fDot(otherVelocity, dir));
+        sf::Vector2f tangent = { -dir.y, dir.x };
+        float tangentVelocity = vector2fDot(velocity, tangent);
 
-            // Vec2 dir = delta.normalized();
-            sf::Vector2f dir = vector2fNormalize(delta);
+        velocity = dir * dirVelocity + tangent * tangentVelocity;
 
-
-            // Move balls out of collision
-
-            float overlap = 0.5f * (dist - radius - other_radius);
-
-            // pos[i].subtract(delta.normalized().times(overlap));
-            sf::Vector2f new_curr_ball_pos = center - (dir * overlap);
-            shape.setPosition(new_curr_ball_pos);
-
-            // pos[j].add(delta.normalized().times(overlap));
-            // sf::Vector2f new_other_ball_pos = other_center - (2.f * dir * overlap);
-            // otherBall.setShapePosition(new_other_ball_pos);
-            
-            // // float v1 = dot(vel[i], dir);
-            // // float v2 = dot(vel[j], dir);
-            // float v1 = vector2fDot(center, dir);
-            // float v2 = vector2fDot(other_center, dir);
-
-            // // float new_v1 = (m1 * v1 + m2 * v2 - m2 * (v1 - v2) * cor) / (m1 + m2);
-            // //  float new_v2 = (m1 * v1 + m2 * v2 - m1 * (v2 - v1) * cor) / (m1 + m2);
-            // float new_v1 = (mass * v1 + other_mass * v2 - other_mass * (v1 - v2) * RESTITUTION / (mass + other_mass));
-            // float new_v2 = (mass * v1 + other_mass * v2 - mass * (v2 - v1) * RESTITUTION / (mass + other_mass));
-
-            // // vel[i].add(dir.times(new_v1 - v1));
-            // // vel[j].add(dir.times(new_v2 - v2));
-            // //velocity += (dir.times(new_v1-v1));
-            // velocity = vector2fNormalize(delta, new_v1 - v1);
-            // otherBall.setVelocity(vector2fNormalize(delta, new_v2-v2));
-            
-            returnVal = true;
-        }
-
-        //based off of billards:
-
-        //shape.setPosition(clip(center.x, radius, WINDOW_WIDTH - radius) - radius, clip(center.y, radius, WINDOW_HEIGHT - radius) - radius);
-        return returnVal;
+        return true;
     }
 
-    sf::CircleShape getShape() const {
-        return shape;
-    }
 };
 
